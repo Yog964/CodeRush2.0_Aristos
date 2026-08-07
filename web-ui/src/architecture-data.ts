@@ -309,7 +309,23 @@ export const ARCHITECTURE_DATA: ArchLayer[] = [
   },
 ];
 
-// ─── Graph layout builder ──────────────────────────────────────────────────
+export const EVENT_TO_STEP: Record<string, string> = {
+  'RepoIntelligence': 'step-repo-scan',
+  'ASTIndex': 'step-ast-index',
+  'ImportGraph': 'step-import-call-graph',
+  'RepoDNA': 'step-repo-dna',
+  'EKG': 'step-ekg-build',
+  'ContextManager': 'step-context-build',
+  'MemoryManager': 'step-memory-load',
+  'ParliamentaryPlanner': 'step-plan',
+  'AgentPool': 'step-agent-execute',
+  'ToolEngine': 'step-tool-dispatch',
+  'SandboxExecutor': 'step-sandbox-exec',
+  'VerificationEngine': 'step-syntax-lint',
+  'ConfidenceScorer': 'step-score',
+  'EvidenceCollector': 'step-package',
+  'OllamaAdapter': 'step-llm-generate',
+};
 
 const LAYER_W = 820;
 const STEP_W  = 720;
@@ -409,12 +425,6 @@ export function buildGraphData(
     // ── Inter-layer edge ────────────────────────────────────────
     if (layerIdx > 0) {
       const prevLayer = ARCHITECTURE_DATA[layerIdx - 1];
-      const srcId = isExpanded
-        ? layer.id  // connect from layer header
-        : layer.id;
-      const tgtId = layer.id;
-
-      // Get output label from previous layer's last step
       const prevLastStep = prevLayer.steps[prevLayer.steps.length - 1];
       const edgeLabel = prevLastStep?.outputs[0] || '';
 

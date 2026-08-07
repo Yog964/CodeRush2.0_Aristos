@@ -37,12 +37,13 @@ class Orchestrator:
 
     def __init__(self, repo_path: str, issue_statement: str,
                  model: str = None, ollama_url: str = None,
-                 auto_push: bool = None):
+                 auto_push: bool = None, logger: Optional[EventLogger] = None, run_id: str = "run_default"):
         self.request = InitialRequest(
             repository_path=repo_path,
             issue_statement=issue_statement
         )
         self.repo_path = os.path.abspath(repo_path)
+        self.run_id = run_id
         self.used_fallback_plan = False
 
         # Override config if CLI args provided
@@ -54,7 +55,7 @@ class Orchestrator:
             Config.AUTO_PUSH = auto_push
 
         # ── Cross-cutting: Observability ──
-        self.logger = EventLogger()
+        self.logger = logger if logger else EventLogger()
         self.trace = TraceCollector()
 
         # ── Layer 0: Model Adapter ──
@@ -82,8 +83,11 @@ class Orchestrator:
         self.ekg = None
         self.context_manager = ContextManager(Config.CONTEXT_TOKEN_BUDGET)
 
-        # Output directory
-        self.output_dir = os.path.join(self.repo_path, Config.OUTPUT_DIR)
+        # Output directory (isolated by run_id)
+        # Use absolute path outside the user repo to avoid dirtying their git index, 
+        # or just a dedicated outputs folder in the CodeRush workspace
+        workspace_root = os.path.splitdrive(os.getcwd())[0] + os.sep + os.path.join("CodeRush", "outputs")
+        self.output_dir = os.path.join(workspace_root, self.run_id)
         os.makedirs(self.output_dir, exist_ok=True)
 
     def run(self):

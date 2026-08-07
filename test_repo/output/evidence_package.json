@@ -1,0 +1,91 @@
+{
+  "task_graph_versions": [
+    {
+      "action": "create_task_graph",
+      "nodes": [
+        {
+          "id": "explore_add_hello_world_in_repo",
+          "persona": "Explorer",
+          "description": "Explore add hello world in repo task",
+          "dependencies": [
+            "verify_add_hello_world_in_repo"
+          ],
+          "token_budget": 2000
+        },
+        {
+          "id": "add_hello_world_in_dummy_py",
+          "persona": "Implementer",
+          "description": "Add a hello world print statement to dummy.py",
+          "dependencies": [
+            "explore_add_hello_world_in_repo"
+          ],
+          "token_budget": 2000
+        },
+        {
+          "id": "review_add_hello_world_in_dummy_py",
+          "persona": "Reviewer",
+          "description": "Review changes made to dummy.py",
+          "dependencies": [
+            "add_hello_world_in_dummy_py"
+          ],
+          "token_budget": 2000
+        },
+        {
+          "id": "verify_add_hello_world_in_repo",
+          "persona": "Verifier",
+          "description": "Verify that the hello world print statement was added correctly in repo",
+          "dependencies": [],
+          "token_budget": 2000
+        }
+      ]
+    }
+  ],
+  "tool_calls": [],
+  "files_modified": [
+    "harness_memory.db",
+    "src/__pycache__/__init__.cpython-311.pyc",
+    "src/__pycache__/orchestrator.cpython-311.pyc",
+    "src/__pycache__/schemas.cpython-311.pyc",
+    "src/orchestrator.py",
+    "src/schemas.py"
+  ],
+  "verification_results": [
+    {
+      "check_name": "syntax",
+      "passed": true,
+      "details": ""
+    },
+    {
+      "check_name": "lint",
+      "passed": true,
+      "details": "flake8 not available, skipping"
+    },
+    {
+      "check_name": "tests",
+      "passed": true,
+      "details": "No tests found"
+    },
+    {
+      "check_name": "security",
+      "passed": true,
+      "details": ""
+    },
+    {
+      "check_name": "diff",
+      "passed": true,
+      "details": "Diff is non-empty"
+    }
+  ],
+  "confidence": {
+    "overall_score": 0.725,
+    "factors": {
+      "syntax": 1.0,
+      "lint": 0.5,
+      "tests": 0.5,
+      "security": 1.0,
+      "plan": 1.0,
+      "minimal_changes": 0.5
+    },
+    "explanation": "Confidence calculated based on verification results."
+  }
+}
