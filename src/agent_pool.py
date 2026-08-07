@@ -32,10 +32,27 @@ class BasePersona:
                 
             elif tool_call.action == "run_command":
                 cmd = tool_call.parameters.get("command", "")
-                code, stdout, stderr = self.sandbox.execute_command(cmd)
-                output_log.append(f"Cmd: {cmd}\nCode: {code}\nOutput: {stdout}")
                 
-                prompt = f"Command exited with {code}.\nOutput: {stdout}\n\nIf done, emit action='complete'. Otherwise next tool call."
+                # TASK 1: Policy Engine Interception
+                from .policy_engine import PolicyEngine
+                is_allowed, reason = PolicyEngine.is_allowed(cmd)
+                
+                if not is_allowed:
+                    output_log.append(f"[Policy Engine] REJECTED: {cmd} - {reason}")
+                    prompt = f"[Policy Engine] Command rejected for security: {reason}.\n\nFormulate an alternative ToolCallRequest or 'complete'."
+                else:
+                    code, stdout, stderr = self.sandbox.execute_command(cmd)
+                    
+                    # TASK 2: Failure Recovery Engine
+                    if code != 0:
+                        err_msg = stderr if stderr else stdout
+                        output_log.append(f"[Recovery Engine] Analyzing Root Cause -> Retrying (Exit {code})")
+                        output_log.append(f"Cmd: {cmd}\nCode: {code}\nOutput: {err_msg}")
+                        prompt = f"[Recovery Engine] Command failed with exit code {code}.\nOutput: {err_msg}\n\nAnalyze the root cause and formulate a corrective ToolCallRequest."
+                    else:
+                        output_log.append(f"Cmd: {cmd}\nCode: {code}\nOutput: {stdout}")
+                        prompt = f"Command exited with {code}.\nOutput: {stdout}\n\nIf done, emit action='complete'. Otherwise next tool call."
+                
                 tool_call = self.llm.get_structured_output(prompt, ToolCallRequest, self.system_prompt)
                 
             elif tool_call.action == "write_file":

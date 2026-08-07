@@ -1,7 +1,7 @@
 import argparse
 import sys
 import os
-import tempfile
+import uuid
 import subprocess
 from src.orchestrator import Orchestrator
 
@@ -9,6 +9,14 @@ def main():
     parser = argparse.ArgumentParser(description="AE-01 Unified Agentic Coding Harness")
     parser.add_argument("repo_path", help="Path to the repository to ingest")
     parser.add_argument("issue", help="The issue statement or feature request")
+    
+    # Advanced features and integrations
+    parser.add_argument("--model", type=str, help="Specify the Ollama model to use (e.g. llama3.2:latest)")
+    parser.add_argument("--ollama-url", type=str, help="Custom Ollama endpoint URL")
+    parser.add_argument("--auto-push", action="store_true", help="Automatically commit and push changes")
+    parser.add_argument("--is-baseline", action="store_true", help="Run in baseline (naive) mode for A/B testing")
+    parser.add_argument("--comparison-group-id", type=str, help="Group ID for A/B testing comparisons")
+    parser.add_argument("--run-id", type=str, help="Custom Run ID (defaults to auto-generated)")
     
     args = parser.parse_args()
     
@@ -38,9 +46,23 @@ def main():
             print(f"Failed to clone repository: {e}")
             sys.exit(1)
     
+    # Generate run ID if not provided
+    run_id = args.run_id or f"RUN-{str(uuid.uuid4())[:8].upper()}"
+    print(f"Starting execution for {run_id}...")
+    
     try:
-        orchestrator = Orchestrator(repo_path=repo_path, issue_statement=args.issue)
+        orchestrator = Orchestrator(
+            repo_path=repo_path, 
+            issue_statement=args.issue,
+            model=args.model,
+            ollama_url=args.ollama_url,
+            auto_push=args.auto_push,
+            run_id=run_id,
+            is_baseline=args.is_baseline,
+            comparison_group_id=args.comparison_group_id
+        )
         orchestrator.run()
+        print(f"Execution completed. Artifacts saved to outputs/{run_id}/")
     except Exception as e:
         print(f"Harness execution failed: {e}")
         sys.exit(1)

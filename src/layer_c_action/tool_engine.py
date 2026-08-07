@@ -32,6 +32,27 @@ class ToolEngine:
                     result.output = output
             elif tool_call.action == "run_command":
                 cmd = tool_call.parameters.get("command") or tool_call.parameters.get("cmd") or ""
+                
+                # [Approval Gate / Human-in-the-Loop]
+                dangerous_keywords = ["rm ", "drop ", "truncate ", "push ", "publish ", "del "]
+                if any(kw in cmd.lower() for kw in dangerous_keywords):
+                    if self.event_logger:
+                        self.event_logger.log_event("ToolEngine", "APPROVAL_GATE", f"High-risk command pending user approval: {cmd}")
+                    print(f"\n\033[93m[APPROVAL GATE]\033[0m The agent has requested to execute a high-risk command:")
+                    print(f"Command: {cmd}")
+                    choice = input("\033[96mApprove this action? (y/n/edit):\033[0m ").strip().lower()
+                    if choice == 'n' or choice == 'no':
+                        result.success = False
+                        result.error = "Execution rejected by human operator."
+                        if self.event_logger:
+                            self.event_logger.log_event("ToolEngine", "REJECTED", "Command rejected by user")
+                        return result
+                    elif choice == 'edit':
+                        cmd = input("\033[96mEnter modified command:\033[0m ").strip()
+                        print(f"Executing modified command: {cmd}")
+                        if self.event_logger:
+                            self.event_logger.log_event("ToolEngine", "MODIFIED", f"User modified command to: {cmd}")
+
                 code, out, err = self.sandbox.execute_command(cmd)
                 if code == 0:
                     result.output = out

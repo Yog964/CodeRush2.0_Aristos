@@ -24,6 +24,10 @@ function App() {
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [activeStepId, setActiveStepId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeRepoPath, setActiveRepoPath] = useState('');
+  const [activeIssue, setActiveIssue] = useState('');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [activeComparisonGroupId, setActiveComparisonGroupId] = useState<string | undefined>(undefined);
   
   // Live State
   const [liveEvents, setLiveEvents] = useState<EventLog[]>([]);
@@ -64,35 +68,43 @@ function App() {
     setCurrentView('task_run');
   };
 
-  const handleStartTask = async (repoPath: string, issue: string) => {
-    try {
-      const res = await fetch('http://localhost:8000/api/runs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ repo_path: repoPath, issue: issue })
-      });
-      const data = await res.json();
+  const handleStartTask = async (repoPath: string, issue: string, isBaseline: boolean = false, comparisonGroupId?: string) => {
+    const res = await fetch('http://localhost:8000/api/runs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        repo_path: repoPath, 
+        issue: issue,
+        is_baseline: isBaseline,
+        comparison_group_id: comparisonGroupId || null
+      })
+    });
+    if (!res.ok) throw new Error(`Server error: ${res.status}`);
+    const data = await res.json();
+    // For comparison mode, only navigate to task_run for the submitted (non-baseline) run
+    if (!isBaseline) {
       setIsModalOpen(false);
-      setLiveEvents([]); // Clear old events
-      setActiveStepId(null); // Clear old architecture highlighting
+      setLiveEvents([]);
+      setActiveStepId(null);
+      setActiveRepoPath(repoPath);
+      setActiveIssue(issue);
       setActiveRunId(data.run_id);
+      setActiveComparisonGroupId(comparisonGroupId);
       setCurrentView('task_run');
-    } catch (e) {
-      console.error("Failed to start task:", e);
-      alert("Failed to connect to backend. Is the FastAPI server running?");
-      setIsModalOpen(false);
     }
   };
 
   return (
     <div className="app-layout">
-      <Sidebar 
-        activeView={currentView} 
-        onNavigate={(view) => setCurrentView(view)} 
-      />
+      {isSidebarOpen && (
+        <Sidebar 
+          activeView={currentView} 
+          onNavigate={(view) => setCurrentView(view)} 
+        />
+      )}
       
       <div className="main-content">
-        <Header onNewTask={() => setIsModalOpen(true)} />
+        <Header onNewTask={() => setIsModalOpen(true)} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
         
         <main className="page-content">
           {currentView === 'dashboard' && (
@@ -100,7 +112,7 @@ function App() {
           )}
           
           {currentView === 'task_run' && activeRunId && (
-            <TaskRun runId={activeRunId} liveEvents={liveEvents} onBack={() => setCurrentView('dashboard')} />
+            <TaskRun runId={activeRunId} liveEvents={liveEvents} repoPath={activeRepoPath} issue={activeIssue} onBack={() => setCurrentView('dashboard')} comparisonGroupId={activeComparisonGroupId} />
           )}
 
           {currentView === 'architecture' && (

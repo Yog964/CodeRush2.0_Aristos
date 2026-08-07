@@ -143,6 +143,7 @@ class EvidencePackage(BaseModel):
     files_modified: List[str] = Field(default_factory=list)
     verification_results: List[VerificationResult] = Field(default_factory=list)
     confidence: ConfidenceReport = Field(default_factory=ConfidenceReport)
+    repo_dna: Optional[Dict[str, Any]] = None
 
 class EventLog(BaseModel):
     timestamp: str

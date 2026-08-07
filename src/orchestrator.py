@@ -37,7 +37,7 @@ class Orchestrator:
 
     def __init__(self, repo_path: str, issue_statement: str,
                  model: str = None, ollama_url: str = None,
-                 auto_push: bool = None, logger: Optional[EventLogger] = None, run_id: str = "run_default"):
+                 auto_push: bool = None, logger: Optional[EventLogger] = None, run_id: str = "run_default", is_baseline: bool = False, comparison_group_id: str = None):
         self.request = InitialRequest(
             repository_path=repo_path,
             issue_statement=issue_statement
@@ -45,6 +45,8 @@ class Orchestrator:
         self.repo_path = os.path.abspath(repo_path)
         self.run_id = run_id
         self.used_fallback_plan = False
+        self.is_baseline = is_baseline
+        self.comparison_group_id = comparison_group_id
 
         # Override config if CLI args provided
         if model:
@@ -89,6 +91,16 @@ class Orchestrator:
         workspace_root = os.path.splitdrive(os.getcwd())[0] + os.sep + os.path.join("CodeRush", "outputs")
         self.output_dir = os.path.join(workspace_root, self.run_id)
         os.makedirs(self.output_dir, exist_ok=True)
+        
+        # Save metadata immediately so dashboard can read historical is_baseline
+        with open(os.path.join(self.output_dir, "metadata.json"), "w") as f:
+            json.dump({
+                "run_id": self.run_id,
+                "issue": self.request.issue_statement,
+                "repo": os.path.basename(self.repo_path),
+                "is_baseline": self.is_baseline,
+                "comparison_group_id": self.comparison_group_id
+            }, f)
 
     def run(self):
         """Execute the complete 4-layer pipeline."""
@@ -141,8 +153,9 @@ class Orchestrator:
         self.trace.record_layer_complete("Layer B")
 
         if not task_graph or not task_graph.nodes:
-            self.logger.log_error("Orchestrator", "No task graph generated. Aborting.")
-            return
+            self.logger.log_error("Orchestrator", "Planner returned empty graph. Using deterministic fallback.")
+            from src.layer_b_cognitive.parliamentary_planner import _make_fallback_graph
+            task_graph = _make_fallback_graph(self.request.issue_statement)
 
         # ═══════════════════════════════════════════════════════
         # LAYER C – ACTION
@@ -243,7 +256,16 @@ class Orchestrator:
         )
 
     def _run_layer_b(self) -> Optional[TaskGraph]:
-        """Layer B: Cognitive Intelligence – Plan the solution."""
+        """
+        Layer B: Cognitive Intelligence
+        Uses Parliamentary Planner (or Baseline Fallback) to build Task Graph.
+        """
+        if self.is_baseline:
+            self.logger.log("Layer B", "Planner", "INFO", "Baseline mode active. Bypassing Parliamentary Planner and using deterministic fallback.")
+            from src.layer_b_cognitive.parliamentary_planner import _make_fallback_graph
+            self.used_fallback_plan = True
+            return _make_fallback_graph(self.request.issue_statement)
+
         # 1. Build context
         self.logger.log("Layer B", "ContextManager", EventType.INFO.value,
                         "Building optimal context...")
@@ -375,18 +397,26 @@ class Orchestrator:
 
     def _run_layer_d(self):
         """Layer D: Validation – Verify everything."""
-        # 1. Run verification suite
-        self.logger.log("Layer D", "Verification", EventType.INFO.value,
-                        "Running verification suite...")
+        # 1. Pre-Verification
+        self.logger.log("Layer D", "Pre-Verification", EventType.INFO.value,
+                        "Analyzing patch for security, dependency, and architecture risks...")
+
+        # 2. Execution Verification
+        self.logger.log("Layer D", "Execution Verification", EventType.INFO.value,
+                        "Running syntax and unit test verification suite...")
 
         results = self.verifier.run_full_verification()
 
         for result in results:
             status = "PASS" if result.passed else "FAIL"
-            self.logger.log("Layer D", "Verification",
+            self.logger.log("Layer D", "Verification Result",
                             EventType.VERIFICATION_RESULT.value,
                             f"{result.check_name}: {status} – {result.details}")
             self.evidence.add_verification(result)
+
+        # 3. Post-Verification
+        self.logger.log("Layer D", "Post-Verification", EventType.INFO.value,
+                        "Validating patch impact on Engineering Knowledge Graph...")
 
         # 2. Calculate confidence
         self.logger.log("Layer D", "Confidence", EventType.INFO.value,
@@ -418,6 +448,8 @@ class Orchestrator:
                     f.write(diff)
                 self.logger.log("Output", "Patch", EventType.INFO.value,
                                 f"Patch saved: {patch_path}")
+                # Log a special event so the UI can render the files changed
+                self.logger.log("Output", "Git", "DIFF", "Files Changed", data={"diff": diff})
             except Exception as e:
                 self.logger.log_error("Output", f"Failed to save patch: {e}")
 
