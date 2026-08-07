@@ -38,6 +38,15 @@ class BasePersona:
                 prompt = f"Command exited with {code}.\nOutput: {stdout}\n\nIf done, emit action='complete'. Otherwise next tool call."
                 tool_call = self.llm.get_structured_output(prompt, ToolCallRequest, self.system_prompt)
                 
+            elif tool_call.action == "write_file":
+                filepath = tool_call.parameters.get("filepath", "")
+                content = tool_call.parameters.get("content", "")
+                result_msg = self.sandbox.write_file(filepath, content)
+                output_log.append(result_msg)
+                
+                prompt = f"Write result:\n{result_msg}\n\nIf done, emit action='complete'. Otherwise next tool call."
+                tool_call = self.llm.get_structured_output(prompt, ToolCallRequest, self.system_prompt)
+                
             elif tool_call.action == "complete":
                 output_log.append("Task completed.")
                 break
@@ -50,22 +59,22 @@ class BasePersona:
 class Explorer(BasePersona):
     def __init__(self, llm, sandbox, memory):
         super().__init__(llm, sandbox, memory)
-        self.system_prompt = "You are the Explorer. Your job is to locate files, symbols, and understand the repository structure. Use read_file and run_command (e.g., grep, find)."
+        self.system_prompt = "You are the Explorer. Your job is to locate files and understand the repo structure. Use ONLY read_file and run_command."
 
 class Implementer(BasePersona):
     def __init__(self, llm, sandbox, memory):
         super().__init__(llm, sandbox, memory)
-        self.system_prompt = "You are the Implementer. Your job is to write code and apply bug fixes. Use write_file and run_command."
+        self.system_prompt = "You are the Implementer. Your job is to write code and apply bug fixes. Use ONLY write_file, read_file, and run_command."
 
 class Reviewer(BasePersona):
     def __init__(self, llm, sandbox, memory):
         super().__init__(llm, sandbox, memory)
-        self.system_prompt = "You are the Reviewer. Check the Implementer's work for logic errors or style issues."
+        self.system_prompt = "You are the Reviewer. Check logic and style. Use ONLY read_file and run_command. DO NOT use review_code."
 
 class Verifier(BasePersona):
     def __init__(self, llm, sandbox, memory):
         super().__init__(llm, sandbox, memory)
-        self.system_prompt = "You are the Verifier. Run tests and linters to ensure zero regressions."
+        self.system_prompt = "You are the Verifier. Run tests and linters. Use ONLY run_command and read_file. DO NOT use verify_calling_feature."
 
 class AgentPool:
     def __init__(self, llm: LLMClient, sandbox: SandboxExecutor, memory: MemoryManager):

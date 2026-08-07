@@ -76,13 +76,19 @@ class SandboxExecutor:
         except Exception as e:
             return f"Error reading file {filepath}: {e}"
 
-    def write_file(self, filepath: str, content: str):
+    def write_file(self, filepath: str, content: str) -> str:
         """Writes a file to the local repo path."""
+        if not filepath:
+            return "Error: filepath cannot be empty."
         full_path = os.path.join(self.repo_path, filepath)
+        if os.path.isdir(full_path):
+            return f"Error: {filepath} is a directory, cannot write to it."
+            
         # Ensure directory exists
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
         try:
             with open(full_path, 'w', encoding='utf-8') as f:
                 f.write(content)
+            return f"Successfully wrote {len(content)} bytes to {filepath}"
         except Exception as e:
-            print(f"Failed to write file {filepath}: {e}")
+            return f"Failed to write file {filepath}: {e}"

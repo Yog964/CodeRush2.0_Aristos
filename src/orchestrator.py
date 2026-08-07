@@ -92,6 +92,18 @@ class Orchestrator:
             with open("rollback_artifact.patch", "w") as f:
                 f.write(diff_out)
             print("Rollback-Ready Artifact generated: rollback_artifact.patch")
+            
+            print("Committing and pushing changes to remote repository...")
+            self.sandbox.execute_command('git config user.name "AE-01 Agent"')
+            self.sandbox.execute_command('git config user.email "agent@harness.local"')
+            self.sandbox.execute_command("git add .")
+            self.sandbox.execute_command('git commit -m "Auto-generated fixes by AE-01 Harness"')
+            
+            push_code, push_out, push_err = self.sandbox.execute_command("git push")
+            if push_code == 0:
+                print("Successfully pushed changes to remote!")
+            else:
+                print(f"Failed to push changes. Ensure authentication is set up.\nError: {push_err or push_out}")
         else:
             print("No changes detected or not a git repository.")
             
