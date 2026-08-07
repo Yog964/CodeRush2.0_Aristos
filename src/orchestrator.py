@@ -141,8 +141,9 @@ class Orchestrator:
         self.trace.record_layer_complete("Layer B")
 
         if not task_graph or not task_graph.nodes:
-            self.logger.log_error("Orchestrator", "No task graph generated. Aborting.")
-            return
+            self.logger.log_error("Orchestrator", "Planner returned empty graph. Using deterministic fallback.")
+            from src.layer_b_cognitive.parliamentary_planner import _make_fallback_graph
+            task_graph = _make_fallback_graph(self.request.issue_statement)
 
         # ═══════════════════════════════════════════════════════
         # LAYER C – ACTION
@@ -418,6 +419,8 @@ class Orchestrator:
                     f.write(diff)
                 self.logger.log("Output", "Patch", EventType.INFO.value,
                                 f"Patch saved: {patch_path}")
+                # Log a special event so the UI can render the files changed
+                self.logger.log("Output", "Git", "DIFF", "Files Changed", data={"diff": diff})
             except Exception as e:
                 self.logger.log_error("Output", f"Failed to save patch: {e}")
 

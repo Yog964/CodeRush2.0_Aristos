@@ -139,7 +139,17 @@ class OllamaAdapter(BaseLLMAdapter):
                 continue
 
             try:
-                parsed = json.loads(response.content)
+                # Strip markdown json blocks if present
+                clean_content = response.content.strip()
+                if clean_content.startswith("```json"):
+                    clean_content = clean_content[7:]
+                elif clean_content.startswith("```"):
+                    clean_content = clean_content[3:]
+                if clean_content.endswith("```"):
+                    clean_content = clean_content[:-3]
+                clean_content = clean_content.strip()
+                
+                parsed = json.loads(clean_content)
                 validated = schema(**parsed)
                 return validated
             except json.JSONDecodeError as e:

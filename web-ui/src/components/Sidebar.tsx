@@ -20,17 +20,6 @@ interface SidebarProps {
 
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'repositories', label: 'Repositories', icon: FolderGit2 },
-  { id: 'tasks', label: 'Tasks', icon: CheckSquare },
-  { id: 'runs', label: 'Runs', icon: PlaySquare },
-  { id: 'memory', label: 'Memory', icon: Database },
-  { id: 'context', label: 'Context', icon: Network },
-  { id: 'tools', label: 'Tools', icon: Wrench },
-  { id: 'sandbox', label: 'Sandbox', icon: Box },
-  { id: 'architecture', label: 'Architecture', icon: Network }, // Moved from Tools for our specific feature
-  { id: 'evaluations', label: 'Evaluations', icon: BarChart2 },
-  { id: 'reports', label: 'Reports', icon: FileText },
-  { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
 export function Sidebar({ activeView, onNavigate }: SidebarProps) {

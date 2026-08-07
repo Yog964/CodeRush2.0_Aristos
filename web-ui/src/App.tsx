@@ -24,6 +24,9 @@ function App() {
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [activeStepId, setActiveStepId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeRepoPath, setActiveRepoPath] = useState('');
+  const [activeIssue, setActiveIssue] = useState('');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
   // Live State
   const [liveEvents, setLiveEvents] = useState<EventLog[]>([]);
@@ -65,34 +68,33 @@ function App() {
   };
 
   const handleStartTask = async (repoPath: string, issue: string) => {
-    try {
-      const res = await fetch('http://localhost:8000/api/runs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ repo_path: repoPath, issue: issue })
-      });
-      const data = await res.json();
-      setIsModalOpen(false);
-      setLiveEvents([]); // Clear old events
-      setActiveStepId(null); // Clear old architecture highlighting
-      setActiveRunId(data.run_id);
-      setCurrentView('task_run');
-    } catch (e) {
-      console.error("Failed to start task:", e);
-      alert("Failed to connect to backend. Is the FastAPI server running?");
-      setIsModalOpen(false);
-    }
+    const res = await fetch('http://localhost:8000/api/runs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repo_path: repoPath, issue: issue })
+    });
+    if (!res.ok) throw new Error(`Server error: ${res.status}`);
+    const data = await res.json();
+    setIsModalOpen(false);
+    setLiveEvents([]);
+    setActiveStepId(null);
+    setActiveRepoPath(repoPath);
+    setActiveIssue(issue);
+    setActiveRunId(data.run_id);
+    setCurrentView('task_run');
   };
 
   return (
     <div className="app-layout">
-      <Sidebar 
-        activeView={currentView} 
-        onNavigate={(view) => setCurrentView(view)} 
-      />
+      {isSidebarOpen && (
+        <Sidebar 
+          activeView={currentView} 
+          onNavigate={(view) => setCurrentView(view)} 
+        />
+      )}
       
       <div className="main-content">
-        <Header onNewTask={() => setIsModalOpen(true)} />
+        <Header onNewTask={() => setIsModalOpen(true)} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
         
         <main className="page-content">
           {currentView === 'dashboard' && (
@@ -100,7 +102,7 @@ function App() {
           )}
           
           {currentView === 'task_run' && activeRunId && (
-            <TaskRun runId={activeRunId} liveEvents={liveEvents} onBack={() => setCurrentView('dashboard')} />
+            <TaskRun runId={activeRunId} liveEvents={liveEvents} repoPath={activeRepoPath} issue={activeIssue} onBack={() => setCurrentView('dashboard')} />
           )}
 
           {currentView === 'architecture' && (
