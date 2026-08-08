@@ -528,7 +528,7 @@ export function TaskRun({ onBack, runId, liveEvents = [], repoPath = '', issue =
                       </span>
                     </div>
                   ))}
-                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px dashed var(--surface-border)', fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
+                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px dashed var(--surface-border)', fontSize: '0.75rem', color: 'var(--text-tertiary)', whiteSpace: 'pre-wrap' }}>
                     {runData.evidence.confidence.explanation || 'Calculated using deterministic engineering rules (config.py).'}
                   </div>
                 </div>
