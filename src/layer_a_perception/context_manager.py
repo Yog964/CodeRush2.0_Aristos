@@ -7,17 +7,18 @@ class ContextManager:
         self.token_budget = token_budget
 
     def build_context(self, issue: str, intelligence: RepoIntelligenceReport, ekg: EngineeringKnowledgeGraph, memory_context: str = '') -> str:
-        context_parts = []
+        # Layer 3: System Directive (handled via LLM adapter system_prompt, budget implicitly tracked)
         
-        context_parts.append(f"Issue: {issue}\n")
+        # Context Monitor (90% threshold)
+        warning_threshold = self.token_budget * 0.90
         
-        repo_summary = f"Repo Summary:\nTotal Files: {intelligence.total_files}\nTotal Lines: {intelligence.total_lines}\n"
-        repo_summary += f"Languages: {intelligence.languages}\n"
-        context_parts.append(repo_summary)
+        # Build raw components
+        raw_repo_summary = f"Repo Summary:\nTotal Files: {intelligence.total_files}\nTotal Lines: {intelligence.total_lines}\nLanguages: {intelligence.languages}\n"
+        raw_memory = f"Memory:\n{memory_context}\n" if memory_context else ""
         
-        if memory_context:
-            context_parts.append(f"Memory:\n{memory_context}\n")
-            
+        # Layer 2: Recent Window / Critical Core (Kept verbatim)
+        critical_core = f"Issue: {issue}\n"
+        
         relevant_symbols = []
         for sym in intelligence.symbols:
             score = self._score_relevance(sym.name, issue)
@@ -32,16 +33,52 @@ class ContextManager:
             ekg_nodes.extend(ekg.query_related(sym_id, depth=1))
             
         ekg_nodes = list(set(ekg_nodes))
-        if ekg_nodes:
-            context_parts.append("EKG Context:\n" + ekg.to_context_string(ekg_nodes) + "\n")
+        raw_ekg = "EKG Context:\n" + ekg.to_context_string(ekg_nodes) + "\n" if ekg_nodes else ""
+        
+        standard_context = raw_repo_summary + raw_memory + critical_core + raw_ekg
+        current_tokens = self.estimate_tokens(standard_context)
+        
+        if current_tokens >= warning_threshold:
+            # Trigger Compression Engine
+            compressed_repo = self._compress_context(raw_repo_summary, "repo")
+            compressed_memory = self._compress_context(raw_memory, "memory")
             
-        final_context = ""
-        for part in context_parts:
-            if self.estimate_tokens(final_context + part) > self.token_budget:
-                break
-            final_context += part
+            # Layer 1: Summary Block
+            summary_block = f"--- [COMPRESSED SUMMARY BLOCK] ---\n{compressed_repo}\n{compressed_memory}\n----------------------------------\n"
+            
+            final_context = summary_block + critical_core + raw_ekg
+            if self.estimate_tokens(final_context) > self.token_budget:
+                # Still too large? Aggressively compress EKG
+                compressed_ekg = self._compress_context(raw_ekg, "ekg")
+                final_context = summary_block + critical_core + f"--- [COMPRESSED EKG] ---\n{compressed_ekg}\n"
+        else:
+            final_context = standard_context
             
         return final_context
+
+    def _compress_context(self, raw_text: str, context_type: str) -> str:
+        """Deterministic algorithmic summarization to guarantee speed and budget constraints."""
+        if not raw_text.strip():
+            return ""
+            
+        if context_type == "repo":
+            # Extract numbers/languages, strip massive JSON
+            return f"[Repo Stats]: {raw_text[:120].replace(chr(10), ' ')}..."
+        elif context_type == "memory":
+            # Strip whitespace, keep first/last bounds
+            lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
+            if len(lines) > 5:
+                return f"[Memory]: {lines[0]} ... {lines[-1]}"
+            return f"[Memory]: {' '.join(lines)}"
+        elif context_type == "ekg":
+            # Extremely dense EKG representation
+            dense_nodes = []
+            for line in raw_text.splitlines():
+                if "::" in line:
+                    dense_nodes.append(line.split("::")[-1])
+            return f"[EKG Dense]: {', '.join(dense_nodes[:20])}"
+        
+        return raw_text[:200] + "...(truncated)"
 
     def estimate_tokens(self, text: str) -> int:
         return len(text) // 4
